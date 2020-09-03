@@ -14,7 +14,7 @@ Features:
 * modes:
 	- distance;
 	- speed;
-	- average speed (not moving for longer than ~8 seconds <TOV1 flag set> is treated as stop - average speed will not be counted until you start moving again);
+	- average speed (not moving for longer than ~2 seconds <TOV1 flag set> is treated as stop - average speed will not be counted until you start moving again);
 	- rpms;
 	- total distance;
 This is not an optimal code, but it works fine on atmega8.
@@ -148,28 +148,29 @@ void numercyfry(unsigned char k)
 	}
 }
 
-void liczba(int k, int dot, int milis)
+void my_delay(int t)
 {
-	unsigned char cyf, i;
-	int kopiak;
-	for(int j= 0; j <= milis/8; j++)
+	while(t > 0)
 	{
-		kopiak= k;
-		i= 0;
-		for(int l= 0; l < 3; l++)
-		{
-			i++;
-			cyf= kopiak% 10;
-			cyfra(cyf);
-			numercyfry(i);
-			_delay_ms(2);
-			kopiak= kopiak/10;
-		}
-		cyfra(10);
-		numercyfry(dot);
-		_delay_ms(2);
+		_delay_us(1);
+		t--;
 	}
-	
+}
+
+void liczba(int k, int dot, int micros)
+{
+	unsigned char cyf;
+	for(int l= 1; l < 4; l++)
+	{
+		cyf= k% 10;
+		cyfra(cyf);
+		numercyfry(l);
+		my_delay(micros);
+		k= k/10;
+	}
+	cyfra(10);
+	numercyfry(dot);
+	my_delay(micros);
 }
 
 float przebieg_ee EEMEM;
@@ -181,13 +182,14 @@ int main()
 	DDRC= 0b00000000;
 	PORTC= 0b00000111;
 	
-	TCCR1B= 0b00000101; // prescaler = 1024
+	TCCR1B= 0b00000100; // prescaler = 256
 	TCNT1= 0;
 	TIFR= 1 << TOV1;
 	
 	const float obwod= 2.18; // [m]
 	unsigned char poprzedni= 0, teraz= 0, poprzedni_guzik0= 0, teraz_guzik0= 0, poprzedni_guzik1= 0, teraz_guzik1= 0, poprzedni_guzik2= 0, teraz_guzik2= 0, tryb= 0;
 	float dystans= 0, przebieg;
+	int klatka;
 	
 	float predkosc= 0, srednia_predkosc= 0, rpm= 0, mnoznik= 3.6;
 	float czas, caly_czas= 0;
@@ -212,7 +214,7 @@ int main()
 				TIFR= 1 << TOV1;
 			} else
 			{
-				czas= TCNT1*.000128;
+				czas= TCNT1*0.000032;
 				caly_czas+= czas;
 			}
 			TCNT1= 0;
@@ -220,6 +222,32 @@ int main()
 			srednia_predkosc= dystans/caly_czas;
 			rpm= 60/czas;
 		}
+		
+		//if(predkosc >= 15)
+		//{
+			//klatka= 300;
+		//}
+		//else if(predkosc >= 10)
+		//{
+			//klatka= 500;
+		//}
+		//else if(predkosc >= 5)
+		//{
+			//klatka= 1000;
+		//}
+		//else
+		//{
+			//klatka= 2000;
+		//}
+		if(predkosc > 5)
+		{
+			klatka= 8000/predkosc;
+		}
+		else
+		{
+			klatka= 2000;
+		}
+		
 		
 		if( (PINC & 7) == 0)
 		{
@@ -255,19 +283,19 @@ int main()
 			{
 				if(dystans < 100)
 				{
-					liczba(dystans*10, 2, 0);
+					liczba(dystans*10, 2, klatka);
 				}
 				else if(dystans < 1000)
 				{
-					liczba(dystans, 1, 0);
+					liczba(dystans, 1, klatka);
 				}
 				else if(dystans < 100000)
 				{
-					liczba(dystans*0.01, 2, 0);
+					liczba(dystans*0.01, 2, klatka);
 				}
 				else
 				{
-					liczba(dystans*0.001, 1, 0);
+					liczba(dystans*0.001, 1, klatka);
 				}
 				
 				break;
@@ -277,15 +305,15 @@ int main()
 			{
 				if(predkosc*mnoznik < 10)
 				{
-					liczba(predkosc*mnoznik*100, 3, 0);
+					liczba(predkosc*mnoznik*100, 3, klatka);
 				}
 				else if(predkosc*mnoznik < 100)
 				{
-					liczba(predkosc*mnoznik*10, 2, 0);
+					liczba(predkosc*mnoznik*10, 2, klatka);
 				}
 				else
 				{
-					liczba(predkosc*mnoznik, 1, 0);
+					liczba(predkosc*mnoznik, 1, klatka);
 				}
 				
 				break;
@@ -295,15 +323,15 @@ int main()
 			{
 				if(srednia_predkosc*mnoznik < 10)
 				{
-					liczba(srednia_predkosc*mnoznik*100, 3, 0);
+					liczba(srednia_predkosc*mnoznik*100, 3, klatka);
 				}
 				else if(srednia_predkosc*mnoznik < 100)
 				{
-					liczba(srednia_predkosc*mnoznik*10, 2, 0);
+					liczba(srednia_predkosc*mnoznik*10, 2, klatka);
 				}
 				else
 				{
-					liczba(srednia_predkosc*mnoznik, 1, 0);
+					liczba(srednia_predkosc*mnoznik, 1, klatka);
 				}
 				
 				break;
@@ -313,15 +341,15 @@ int main()
 			{
 				if(rpm < 10)
 				{
-					liczba(rpm*100, 3, 0);
+					liczba(rpm*100, 3, klatka);
 				}
 				else if(rpm < 100)
 				{
-					liczba(rpm*10, 2, 0);
+					liczba(rpm*10, 2, klatka);
 				}
 				else
 				{
-					liczba(rpm, 1, 0);
+					liczba(rpm, 1, klatka);
 				}
 				
 				break;
@@ -331,19 +359,19 @@ int main()
 			{
 				if(przebieg < 100)
 				{
-					liczba(przebieg*10, 2, 0);
+					liczba(przebieg*10, 2, klatka);
 				}
 				else if(przebieg < 1000)
 				{
-					liczba(przebieg, 1, 0);
+					liczba(przebieg, 1, klatka);
 				}
 				else if(przebieg < 100000)
 				{
-					liczba(przebieg*0.01, 2, 0);
+					liczba(przebieg*0.01, 2, klatka);
 				}
 				else
 				{
-					liczba(przebieg*0.001, 1, 0);
+					liczba(przebieg*0.001, 1, klatka);
 				}
 				
 				break;
