@@ -1,10 +1,9 @@
 /*
 Bike meter
 Features:
-* wheel circumference stored in [const float obwod] (line 274);
+* wheel circumference stored in float obwod (line 192);
 * 3 digit display;
 * hall sensor;
-* temperature sensor;
 * LED lights up when hall sensor reads position (just as an indication);
 * uses eeprom to save total distance (manual);
 * three buttons:
@@ -16,9 +15,8 @@ Features:
 	- distance;
 	- speed;
 	- average speed (not moving for longer than ~2 seconds <TOV1 flag set> is treated as stop - average speed will not be counted until you start moving again);
+	- rpms;
 	- total distance;
-	- temperature;
-	- rpms
 This is not an optimal code, but it works fine on atmega8.
 Kolikon
 */
@@ -255,7 +253,7 @@ void liczba(int k, int dot, int micros)
 	my_delay(micros);
 }
 
-uint32_t przebieg_ee EEMEM;
+float przebieg_ee EEMEM;
 
 int main()
 {
@@ -274,13 +272,15 @@ int main()
 	const float obwod= 2.18; // [m]
 	unsigned char poprzedni= 0, teraz= 0, poprzedni_guzik0= 0, teraz_guzik0= 0, poprzedni_guzik1= 0, teraz_guzik1= 0, poprzedni_guzik2= 0, teraz_guzik2= 0, tryb= 0;
 	float temperatura;
-	uint32_t dystans= 0;
+	unsigned long double dystans= 0;
 	unsigned int klatka, ktora= 0;
-	
 	float predkosc= 0, srednia_predkosc= 0, rpm= 0, mnoznik= 3.6;
-	float czas, caly_czas= 0;	
-	uint32_t przebieg= eeprom_read_dword(&przebieg_ee);
-
+	unsigned double czas, caly_czas= 0;
+	
+	float przebieg= eeprom_read_float(&przebieg_ee);
+	unsigned long long int przebieg2= przebieg/obwod;
+	
+	
 	while(1)
 	{
 		teraz= !(PINC & 32);
@@ -296,8 +296,8 @@ int main()
 		{
 			// pomiar czasu
 			
-			dystans++;
-			przebieg++;
+			dystans+= obwod;
+			przebieg+= obwod;
 			
 			if( TIFR & (1 << TOV1) )
 			{
@@ -352,7 +352,7 @@ int main()
 		
 		if( (PINC & 7) == 0)
 		{
-			eeprom_write_dword(&przebieg_ee, 0);
+			eeprom_write_float(&przebieg_ee, 0);
 			_delay_ms(800);
 			ktora= 0;
 		}
@@ -378,7 +378,7 @@ int main()
 		
 		if( (poprzedni_guzik2 == 0) && (teraz_guzik2 == 1) )
 		{
-			eeprom_write_dword(&przebieg_ee, przebieg);
+			eeprom_write_float(&przebieg_ee, przebieg);
 			ktora= 0;
 		}
 		
@@ -398,21 +398,21 @@ int main()
 					numercyfry(1);
 					my_delay(klatka);
 				}		
-				else if(dystans*obwod < 100)
+				else if(dystans < 100)
 				{
-					liczba(dystans*obwod*10, 2, klatka);
+					liczba(dystans*10, 2, klatka);
 				}
-				else if(dystans*obwod < 1000)
+				else if(dystans < 1000)
 				{
-					liczba(dystans*obwod, 1, klatka);
+					liczba(dystans, 1, klatka);
 				}
-				else if(dystans*obwod < 100000)
+				else if(dystans < 100000)
 				{
-					liczba(dystans*obwod*0.01, 2, klatka);
+					liczba(dystans*0.01, 2, klatka);
 				}
 				else
 				{
-					liczba(dystans*obwod*0.001, 1, klatka);
+					liczba(dystans*0.001, 1, klatka);
 				}
 				
 				break;
@@ -514,21 +514,21 @@ int main()
 					numercyfry(1);
 					my_delay(klatka);
 				}
-				else if(przebieg*obwod < 100)
+				else if(przebieg2 < 100)
 				{
-					liczba(przebieg*obwod*10, 2, klatka);
+					liczba(przebieg2*10, 2, klatka);
 				}
-				else if(przebieg*obwod < 1000)
+				else if(przebieg2 < 1000)
 				{
-					liczba(przebieg*obwod, 1, klatka);
+					liczba(przebieg2, 1, klatka);
 				}
-				else if(przebieg*obwod < 100000)
+				else if(przebieg2 < 100000)
 				{
-					liczba(przebieg*obwod*0.01, 2, klatka);
+					liczba(przebieg2*0.01, 2, klatka);
 				}
 				else
 				{
-					liczba(przebieg*obwod*0.001, 1, klatka);
+					liczba(przebieg2*0.001, 1, klatka);
 				}
 				
 				break;
